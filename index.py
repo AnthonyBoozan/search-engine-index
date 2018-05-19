@@ -4,34 +4,38 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 from collections import defaultdict
 import nltk
 import math
+import re
+import os
+import redis
 
 def index(word_dic):
     for i in range(0, 75):
-        for j in range(0, 500):
-            html_doc = open("./WEBPAGES/WEBPAGES_RAW/" + str(i) + "/" + str(j), "r")
+        path = './WEBPAGES/WEBPAGES_RAW/' + str(i)
+        for loc in os.listdir(path):
+            print(path + "/" + loc)
+            html_doc = open(path + "/" + loc ,"r")
             html_content = html_doc.read()
 
-            soup = BeautifulSoup(html_content, 'html.parser').get_text()
-
-            words = word_tokenize(soup)
-
+            soup = BeautifulSoup(html_content, 'html.parser')
+            [s.extract() for s in soup(['style', 'script', '[document]', 'head', 'title'])]
+            viewable_text = soup.getText()
             
-            tokenize(words, word_dic, i, j)
+            words = word_tokenize(viewable_text)
+            tokenize(words, word_dic, i, loc)
     for i in word_dic.values():
         for j in i:
-            j[2] = math.log10((5 * 500) / len(i)) * j[2]
+            j[3] = math.log10((5 * 500) / len(i)) * j[3]
                     
 
 def tokenize(words, word_dic, i, j):
     mini_word_dic = defaultdict(list)
     for w in words:
-        temp = ps.stem(w)
-        
+        temp = ps.stem(w.lower())
         if temp not in mini_word_dic:
-            mini_word_dic[temp].append([[i, j], 1])
+            mini_word_dic[temp].append([i, j, 1])
             
         else:
-            mini_word_dic[temp][0][1] = mini_word_dic[temp][0][1] + 1
+            mini_word_dic[temp][0][2] = mini_word_dic[temp][0][2] + 1
     tf(words, mini_word_dic)
     for key, values in mini_word_dic.iteritems():
         if key not in word_dic:
@@ -45,25 +49,25 @@ def tf(words, mini_word_dic):
         
         values[0].append(float(values[0][1])/len(words))
 
+r = redis.Redis(
+    host="search-engine-redis.lbhnyx.ng.0001.usw1.cache.amazonaws.com",
+    port=6379)
+
+
 word_dic = defaultdict(list)       
 ps = PorterStemmer()
 index(word_dic)
+for key, value in word_dic.iteritems():
+    string = ""
+    for i in value:
+        for j in i:
+            string = string + (str(j) + "|")
+            
+        string = string + "|"
+    r.set(key, string)
 
-##for key, values in word_dic.iteritems():
-    ##if len(values) > 1:
-       ##print(key + " :" + str(values))
-##html_doc = open(str(4), "r")
-##html_content = html_doc.read()
-##
-##soup = BeautifulSoup(html_content, 'html.parser').get_text()
-##
-##words = word_tokenize(soup)
-##
-##print(len(words))
-##tokenize(words, word_dic)
-##tf(word_dic)
-##
-print(word_dic)
+
+
 
 
 
